@@ -1,6 +1,7 @@
 import { Exercise } from "@prisma/client";
 import type { NextPage } from "next";
 import Link from "next/link";
+import { create } from "../../lib/db";
 import { prisma } from "../../lib/prisma";
 
 type Props = {
@@ -8,6 +9,10 @@ type Props = {
 };
 const Page = (props: Props) => {
   const { exercises } = props;
+
+  const handleClick = async (exerciseId: string) => {
+    await create("POST", "exercise", { exerciseId });
+  };
 
   return (
     <div className='gap-y-8 gap-x-8 grid grid-cols-5 px-12 py-8'>
@@ -18,11 +23,13 @@ const Page = (props: Props) => {
         >
           <h2 className='text-xl font-bold text-slate-200'>{exercise.title}</h2>
           <p className='text-base text-slate-300'>{exercise.description}</p>
-          <Link
-            className='bg-slate-400 py-3 px-5 rounded-sm'
-            href={`/exercises/${exercise.id}`}
-          >
-            Start
+          <Link href={`/exercises/${exercise.id}`}>
+            <a
+              className='bg-slate-400 py-3 px-5 rounded-sm text-center'
+              onClick={() => handleClick(exercise.id)}
+            >
+              Start
+            </a>
           </Link>
         </div>
       ))}

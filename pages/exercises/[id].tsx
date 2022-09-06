@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { authOptions } from "../api/auth/[...nextauth]";
 import { unstable_getServerSession } from "next-auth/next";
 import { prisma } from "../../lib/prisma";
+import { create } from "../../lib/db";
 
 type Task = {
   id: string;
@@ -14,30 +15,13 @@ type CompletedTask = {
 };
 type Props = {
   tasks: Task[];
-  completedTasks: CompletedTask[];
+  exerciseId: string;
+  user: string;
 };
 
-const Page = ({ tasks }: Props) => {
+const Page = ({ tasks, exerciseId, user }: Props) => {
   const [state, setState] = useState(tasks);
-
-  async function create(id: string, method: "POST" | "DELETE") {
-    try {
-      fetch(
-        `http://localhost:3000/api/tasks/${
-          method === "POST" ? "create" : "delete"
-        }`,
-        {
-          body: JSON.stringify({ id }),
-          headers: {
-            "Content-Type": "application/json",
-          },
-          method: method,
-        }
-      );
-    } catch (error) {
-      console.log(error);
-    }
-  }
+  const [completed, setCompleted] = useState(false);
   const handleClick = async (id: string) => {
     const completed = state.find((completedTask) => id === completedTask.id);
     const newTasks = state.map((task) => {
@@ -47,14 +31,27 @@ const Page = ({ tasks }: Props) => {
       }
       return task;
     });
-
     if (completed?.completed === false) {
-      await create(id, "POST");
+      await create("POST", "tasks", { id });
     } else {
-      await create(id, "DELETE");
+      await create("DELETE", "tasks", { id });
     }
     setState(newTasks);
   };
+
+  const handleComplete = () => {
+    create("DELETE", "exercise", { exerciseId, user });
+  };
+
+  useEffect(() => {
+    const final: string[] = [];
+    state.map((task) => {
+      if (task.completed) final.push(task.id);
+    });
+    if (final.length === state.length) setCompleted(true);
+
+    if (final.length === state.length - 1) setCompleted(false);
+  }, [state]);
 
   return (
     <div className=' flex bg-slate-700 h-screen  justify-center items-center'>
@@ -70,6 +67,12 @@ const Page = ({ tasks }: Props) => {
           </div>
         ))}
       </div>
+      {completed ? (
+        <div className='absolute bg-slate-200 '>
+          <h2>Completed</h2>
+          <button onClick={handleComplete}>Mark as Completed</button>
+        </div>
+      ) : null}
     </div>
   );
 };
@@ -80,6 +83,9 @@ export async function getServerSideProps(context: any) {
     context.res,
     authOptions
   );
+
+  const exerciseId = context.params.id;
+  const user = session?.user?.email;
 
   const tasks = await prisma.task.findMany({
     where: { exerciseId: context.params.id },
@@ -105,6 +111,8 @@ export async function getServerSideProps(context: any) {
   return {
     props: {
       tasks: completedUserTask,
+      exerciseId,
+      user,
     },
   };
 }
